@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hulahoop.bikewayback.model.dao.BicycleMapper">
+
+    <!-- ✅ 타입 필터별 가용 자전거 조회 (거리 무시) -->
+    <select id="findAvailableBicyclesByLocation"
+            resultType="com.hulahoop.bikewayback.model.dto.BicycleResponseDTO">
+        SELECT
+        bicycle_code AS bicycleCode,
+        latitude AS latitude,
+        longitude AS longitude,
+        bicycle_type AS bicycleType,
+        status AS status,
+        0 AS distanceKm,
+        CONCAT(bicycle_type, '-', CAST(bicycle_code AS CHAR)) AS displayName
+        FROM
+        T_BicycleInfo
+        WHERE
+        status = 'Available'
+        <if test="typeFilter != null and typeFilter != ''">
+            <choose>
+                <when test="typeFilter == '자전거'">
+                    AND bicycle_type = '자전거'
+                </when>
+                <when test="typeFilter == '씽씽이'">
+                    AND bicycle_type = '씽씽이'
+                </when>
+                <when test="typeFilter == '바이크웨이'">
+                    AND bicycle_type IN ('자전거', '씽씽이')
+                </when>
+            </choose>
+        </if>
+        ORDER BY
+        bicycle_code ASC
+    </select>
+
+    <!-- ✅ 자전거 상태 업데이트 -->
+    <update id="updateBicycleStatus">
+        UPDATE T_BicycleInfo
+        SET status = #{status}
+        WHERE bicycle_code = #{bicycleCode}
+    </update>
+
+    <!-- ✅ 예약 추가 -->
+    <insert id="insertReservation">
+        INSERT INTO T_ReservationInfo
+        (
+            record_num,
+            reservation_date,
+            start_time,
+            end_time,
+            state,
+            member_code,
+            bicycle_code
+        )
+        VALUES
+            (
+                    (SELECT COALESCE(MAX(record_num), 0) + 1 FROM T_ReservationInfo),
+                    CURDATE(),
+                    #{startTime},
+                    #{endTime},
+                    #{state},
+                    #{memberCode},
+                    #{bicycleCode}
+            )
+    </insert>
+
+    <!-- ✅ 회원별 예약 목록 -->
+    <select id="findReservationsByMemberCode" resultType="java.util.Map">
+        SELECT
+            record_num,
+            reservation_date,
+            start_time,
+            end_time,
+            state,
+            bicycle_code
+        FROM
+            T_ReservationInfo
+        WHERE
+            member_code = #{memberCode}
+        ORDER BY
+            reservation_date DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,36 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.6'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.hulahoop'
+version = '0.0.1-SNAPSHOT'
+description = 'bikeway-back'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // REST API 기능을 위한 웹 스타터
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // MyBatis 및 Spring 연동을 위한 스타터
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
+    // DB 연결 드라이버 (MySQL)
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
+    // 테스트 의존성
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
