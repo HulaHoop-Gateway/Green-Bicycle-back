@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hulahoop.bikewayback.model.dao.ReservationMapper">
+
+    <resultMap id="reservationMap" type="com.hulahoop.bikewayback.model.dto.ReservationDTO">
+        <result property="recordNum" column="record_num"/>
+        <result property="reservationDateTime" column="reservation_date_time"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="paymentTime" column="payment_time"/>
+        <result property="state" column="state"/>
+        <result property="bicycleCode" column="bicycle_code"/>
+        <result property="bicycleType" column="bicycle_type"/>
+        <result property="ratePerHour" column="rate_per_hour"/>
+        <result property="durationHours" column="duration_hours"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="phoneNumber" column="phone_number"/> <!-- ✅ 조인된 회원 정보 -->
+    </resultMap>
+
+    <select id="findByMemberCode" resultMap="reservationMap">
+        SELECT
+            r.record_num,
+            r.reservation_date_time,
+            r.start_time,
+            r.end_time,
+            r.payment_time,
+            r.state,
+            r.bicycle_code,
+            r.bicycle_type,
+            r.rate_per_hour,
+            r.duration_hours,
+            r.total_amount,
+            m.phone_number
+        FROM T_ReservationInfo r
+                 JOIN T_MemberInfo m ON r.member_code = m.member_code
+        WHERE r.member_code = #{memberCode}
+        ORDER BY r.reservation_date_time DESC
+    </select>
+
+</mapper>
