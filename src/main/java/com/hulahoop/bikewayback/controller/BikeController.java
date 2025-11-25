@@ -10,14 +10,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 🚲 BikeController
- * - Gateway 및 내부 API 요청을 처리
- * - /api/bikes/dispatch 구조로 영화 서비스와 통일
- * - 좌표 누락 시 기본값(하남 미사)을 자동 설정
- * - 응답을 { total, bicycles } 구조로 반환
+ * BikeController
+ * - Gateway 라우팅(Path=/api/gateway/**, Header=intent=.*bike.* → /api/bikes/dispatch)
+ * - 모든 자전거 관련 인텐트를 단일 엔드포인트에서 처리
+ * - bike_list / bike_rate / bike_booking_step3 모두 처리
  */
 @RestController
-@RequestMapping("/api/bikes")  // ✅ 영화 서비스와 구조 통일
+@RequestMapping("/api/bikes")
 public class BikeController {
 
     private final BikeService bikeService;
@@ -27,95 +26,100 @@ public class BikeController {
     }
 
     // ============================================================
-    // ✅ 1️⃣ Gateway 엔드포인트 (/api/bikes/dispatch)
+    // 1. 단일 엔드포인트: intent 기반 분기 처리
     // ============================================================
-    /**
-     * 게이트웨이에서 호출되는 자전거 검색 API
-     * - 좌표 누락 시 기본값(하남 미사 중심)
-     * - "자전거", "씽씽이", "바이크웨이" 필터 지원
-     */
     @PostMapping("/dispatch")
-    public ResponseEntity<Map<String, Object>> dispatchBikesFromGateway(
-            @RequestBody LocationSearchRequest request) {
-        System.out.println("🚲 [BikeController] Gateway dispatch 요청 수신");
+    public ResponseEntity<Map<String, Object>> handleBikesFromGateway(
+            @RequestBody Map<String, Object> request) {
 
-        // 💡 좌표 누락 시 기본값 설정 (하남 미사 중심)
-        if (request.getCenterLat() == 0) request.setCenterLat(37.5630);
-        if (request.getCenterLon() == 0) request.setCenterLon(127.1929);
-        if (request.getRadiusKm() <= 0) request.setRadiusKm(5.0);
+        String intent = (String) request.get("intent");
+        if (intent == null) intent = "bike_list"; // 기본 intent
 
-        System.out.printf("📍 검색 좌표: (%.6f, %.6f), 반경: %.2f km, 필터: %s%n",
-                request.getCenterLat(), request.getCenterLon(), request.getRadiusKm(), request.getTypeFilter());
+        // 💡 핵심 개발 원칙: data 맵 추출
+        // IntentService에서 전달되는 실제 데이터는 항상 최상위 payload 맵의 data 키 안에 들어있습니다.
+        @SuppressWarnings("unchecked")
+        Map<String, Object> data = (Map<String, Object>) request.getOrDefault("data", new HashMap<>());
 
-        // 💡 BikeService 호출
-        List<BicycleResponseDTO> availableBikes = bikeService.findAvailableBikesByLocation(
-                request.getCenterLat(),
-                request.getCenterLon(),
-                request.getRadiusKm(),
-                request.getTypeFilter()
-        );
+        System.out.println("[BikeController] Dispatch 요청 수신, intent=" + intent + ", data=" + data);
 
-        System.out.println("✅ 검색된 자전거 개수: " + availableBikes.size());
+        switch (intent) {
 
-        // 💡 게이트웨이가 파싱 가능한 구조로 응답 감싸기
+            case "bike_rate":
+                return handleBikeRate(data);
+
+            case "bike_booking_step3":
+                return handleBikeBooking(data);
+
+            case "bike_list":
+            default:
+                return handleBikeList(data);
+        }
+    }
+
+    // ============================================================
+    // 2. bike_list 인텐트 처리: 위치 기반 자전거 조회
+    // ============================================================
+    private ResponseEntity<Map<String, Object>> handleBikeList(Map<String, Object> data) {
+
+        // 💡 data 맵에서 추출하도록 수정
+        double lat = data.get("centerLat") == null ? 37.5630 : ((Number) data.get("centerLat")).doubleValue();
+        double lon = data.get("centerLon") == null ? 127.1929 : ((Number) data.get("centerLon")).doubleValue();
+        double radius = data.get("radiusKm") == null ? 5.0 : ((Number) data.get("radiusKm")).doubleValue();
+        String filter = (String) data.get("typeFilter");
+
+        List<BicycleResponseDTO> availableBikes =
+                bikeService.findAvailableBikesByLocation(lat, lon, radius, filter);
+
         Map<String, Object> response = new HashMap<>();
+        response.put("intent", "bike_list");
         response.put("total", availableBikes.size());
-        response.put("bicycles", availableBikes);
+        response.put("bicycles", availableBikes); // 중요 반환 필드: total, bicycles
 
         return ResponseEntity.ok(response);
     }
 
     // ============================================================
-    // ✅ 2️⃣ 내부 테스트용 엔드포인트 (/internal/bike/searchAvailable)
+    // 3. bike_rate 인텐트 처리: 자전거 타입별 요금 조회
     // ============================================================
-    /**
-     * 내부 API: 중심 좌표와 반경으로 자전거 조회 (게이트웨이와 동일한 로직)
-     */
-    @PostMapping("/internal/bike/searchAvailable")
-    public ResponseEntity<List<BicycleResponseDTO>> searchAvailableBikes(
-            @RequestBody LocationSearchRequest request) {
+    private ResponseEntity<Map<String, Object>> handleBikeRate(Map<String, Object> data) {
 
-        if (request.getCenterLat() == 0) request.setCenterLat(37.5630);
-        if (request.getCenterLon() == 0) request.setCenterLon(127.1929);
-        if (request.getRadiusKm() <= 0) request.setRadiusKm(5.0);
+        // 💡 data 맵에서 추출하도록 수정
+        String bicycleType = (String) data.get("bicycleType");
+        int ratePerHour = 0;
 
-        System.out.printf("📍 [Internal] 검색 좌표: (%.6f, %.6f), 반경: %.2f km, 필터: %s%n",
-                request.getCenterLat(), request.getCenterLon(), request.getRadiusKm(), request.getTypeFilter());
+        if ("자전거".equals(bicycleType)) {
+            ratePerHour = 6000;
+        } else if ("씽씽이".equals(bicycleType)) {
+            ratePerHour = 9000;
+        } else {
+            ratePerHour = 4500;
+        }
 
-        List<BicycleResponseDTO> availableBikes = bikeService.findAvailableBikesByLocation(
-                request.getCenterLat(),
-                request.getCenterLon(),
-                request.getRadiusKm(),
-                request.getTypeFilter()
-        );
+        Map<String, Object> response = new HashMap<>();
+        response.put("intent", "bike_rate");
+        response.put("ratePerHour", ratePerHour); // 중요 반환 필드: ratePerHour
 
-        System.out.println("✅ [Internal] 검색된 자전거 개수: " + availableBikes.size());
-        return ResponseEntity.ok(availableBikes);
+        return ResponseEntity.ok(response);
     }
 
     // ============================================================
-    // ✅ DTO (Request Body)
+    // 4. bike_booking_step3 인텐트 처리: 최종 예약 확정 및 DB 저장 (Mock)
     // ============================================================
-    /**
-     * 위치 기반 자전거 검색 요청 DTO
-     */
-    public static class LocationSearchRequest {
-        private double centerLat;   // 중심 위도
-        private double centerLon;   // 중심 경도
-        private double radiusKm = 1.0;  // 검색 반경 (기본값 1km)
-        private String typeFilter;  // 🔥 "자전거", "씽씽이", "바이크웨이" 등 필터
+    private ResponseEntity<Map<String, Object>> handleBikeBooking(Map<String, Object> data) {
 
-        // Getter / Setter
-        public double getCenterLat() { return centerLat; }
-        public void setCenterLat(double centerLat) { this.centerLat = centerLat; }
+        // 💡 data 맵에서 추출하도록 수정. 최종 예약을 위한 모든 정보가 담겨있을 것입니다.
+        // DB 저장/Mock 로직을 수행합니다. (가이드라인에 따라 Mock 처리)
 
-        public double getCenterLon() { return centerLon; }
-        public void setCenterLon(double centerLon) { this.centerLon = centerLon; }
+        // Mock DB 저장 로직: 성공 가정
+        // Integer bicycleId = (Integer) data.get("bicycleId"); // 실제 예약 시 ID 대신 Code 등을 사용합니다.
 
-        public double getRadiusKm() { return radiusKm; }
-        public void setRadiusKm(double radiusKm) { this.radiusKm = radiusKm; }
+        // TODO: 여기서 bookingContext의 모든 정보를 사용하여 최종 예약 저장 로직을 수행해야 합니다.
 
-        public String getTypeFilter() { return typeFilter; }
-        public void setTypeFilter(String typeFilter) { this.typeFilter = typeFilter; }
+        Map<String, Object> response = new HashMap<>();
+        response.put("intent", "bike_booking_step3");
+        response.put("message", "success"); // 필수 반환 필드: message: "success"
+        response.put("bookingId", 12345); // 예약 ID Mock
+
+        return ResponseEntity.ok(response);
     }
 }
