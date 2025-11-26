@@ -17,4 +17,11 @@
         WHERE id = #{id} AND password = #{password}
     </select>
 
+    <!-- ✅ 전화번호로 회원 코드 조회 -->
+    <select id="findMemberCodeByPhone" resultType="Integer">
+        SELECT member_code
+        FROM T_MemberInfo
+        WHERE phone_number = #{phone}
+    </select>
+
 </mapper>

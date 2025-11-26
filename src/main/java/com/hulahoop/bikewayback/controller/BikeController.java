@@ -11,7 +11,8 @@ import java.util.Map;
 
 /**
  * BikeController
- * - Gateway 라우팅(Path=/api/gateway/**, Header=intent=.*bike.* → /api/bikes/dispatch)
+ * - Gateway 라우팅(Path=/api/gateway/**, Header=intent=.*bike.* →
+ * /api/bikes/dispatch)
  * - 모든 자전거 관련 인텐트를 단일 엔드포인트에서 처리
  * - bike_list / bike_rate / bike_booking_step3 모두 처리
  */
@@ -33,7 +34,8 @@ public class BikeController {
             @RequestBody Map<String, Object> request) {
 
         String intent = (String) request.get("intent");
-        if (intent == null) intent = "bike_list"; // 기본 intent
+        if (intent == null)
+            intent = "bike_list"; // 기본 intent
 
         // 💡 핵심 개발 원칙: data 맵 추출
         // IntentService에서 전달되는 실제 데이터는 항상 최상위 payload 맵의 data 키 안에 들어있습니다.
@@ -67,8 +69,7 @@ public class BikeController {
         double radius = data.get("radiusKm") == null ? 5.0 : ((Number) data.get("radiusKm")).doubleValue();
         String filter = (String) data.get("typeFilter");
 
-        List<BicycleResponseDTO> availableBikes =
-                bikeService.findAvailableBikesByLocation(lat, lon, radius, filter);
+        List<BicycleResponseDTO> availableBikes = bikeService.findAvailableBikesByLocation(lat, lon, radius, filter);
 
         Map<String, Object> response = new HashMap<>();
         response.put("intent", "bike_list");
@@ -103,23 +104,63 @@ public class BikeController {
     }
 
     // ============================================================
-    // 4. bike_booking_step3 인텐트 처리: 최종 예약 확정 및 DB 저장 (Mock)
+    // 4. bike_booking_step3 인텐트 처리: 최종 예약 확정 및 DB 저장
     // ============================================================
     private ResponseEntity<Map<String, Object>> handleBikeBooking(Map<String, Object> data) {
 
-        // 💡 data 맵에서 추출하도록 수정. 최종 예약을 위한 모든 정보가 담겨있을 것입니다.
-        // DB 저장/Mock 로직을 수행합니다. (가이드라인에 따라 Mock 처리)
+        System.out.println("[BikeController] 예약 요청 데이터: " + data);
 
-        // Mock DB 저장 로직: 성공 가정
-        // Integer bicycleId = (Integer) data.get("bicycleId"); // 실제 예약 시 ID 대신 Code 등을 사용합니다.
+        try {
+            // 필수 데이터 추출
+            String bicycleCode = String.valueOf(data.get("bicycleCode"));
+            String startTime = String.valueOf(data.get("startTime"));
+            String endTime = String.valueOf(data.get("endTime"));
+            String phoneNumber = String.valueOf(data.get("phoneNumber"));
+            String bicycleType = String.valueOf(data.get("bicycleType"));
+            Object rateObj = data.get("ratePerHour");
+            Integer ratePerHour = (rateObj instanceof Number) ? ((Number) rateObj).intValue() : 0;
 
-        // TODO: 여기서 bookingContext의 모든 정보를 사용하여 최종 예약 저장 로직을 수행해야 합니다.
+            // 데이터 유효성 검사
+            if (bicycleCode == null || "null".equals(bicycleCode) ||
+                    startTime == null || "null".equals(startTime) ||
+                    endTime == null || "null".equals(endTime) ||
+                    phoneNumber == null || "null".equals(phoneNumber)) {
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("intent", "bike_booking_step3");
-        response.put("message", "success"); // 필수 반환 필드: message: "success"
-        response.put("bookingId", 12345); // 예약 ID Mock
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("intent", "bike_booking_step3");
+                errorResponse.put("message", "error");
+                errorResponse.put("error", "필수 데이터가 누락되었습니다: bicycleCode, startTime, endTime, phoneNumber");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
 
-        return ResponseEntity.ok(response);
+            // 실제 DB 저장
+            Integer bookingId = bikeService.createReservation(bicycleCode, startTime, endTime, phoneNumber, bicycleType,
+                    ratePerHour);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("intent", "bike_booking_step3");
+            response.put("message", "success"); // 필수 반환 필드
+            response.put("bookingId", bookingId);
+
+            System.out.println("[BikeController] 예약 성공: bookingId=" + bookingId);
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            // 회원을 찾을 수 없는 경우
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("intent", "bike_booking_step3");
+            errorResponse.put("message", "error");
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+
+        } catch (Exception e) {
+            // 기타 오류
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("intent", "bike_booking_step3");
+            errorResponse.put("message", "error");
+            errorResponse.put("error", "예약 처리 중 오류 발생: " + e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
     }
 }

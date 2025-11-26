@@ -48,22 +48,30 @@
         INSERT INTO T_ReservationInfo
         (
             record_num,
-            reservation_date,
+            reservation_date_time,
             start_time,
             end_time,
             state,
             member_code,
-            bicycle_code
+            bicycle_code,
+            bicycle_type,
+            rate_per_hour,
+            duration_hours,
+            total_amount
         )
         VALUES
             (
-                    (SELECT COALESCE(MAX(record_num), 0) + 1 FROM T_ReservationInfo),
-                    CURDATE(),
-                    #{startTime},
-                    #{endTime},
+                    (SELECT COALESCE(MAX(record_num), 0) + 1 FROM (SELECT record_num FROM T_ReservationInfo) AS tmp),
+                    NOW(),
+                    CONCAT(CURDATE(), ' ', #{startTime}),
+                    CONCAT(CURDATE(), ' ', #{endTime}),
                     #{state},
                     #{memberCode},
-                    #{bicycleCode}
+                    #{bicycleCode},
+                    #{bicycleType},
+                    #{ratePerHour},
+                    #{durationHours},
+                    #{totalAmount}
             )
     </insert>
 
