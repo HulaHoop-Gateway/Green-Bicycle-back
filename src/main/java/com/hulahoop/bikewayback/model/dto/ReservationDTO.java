@@ -13,11 +13,14 @@ public class ReservationDTO {
     private String durationHours;
     private int totalAmount;
     private String phoneNumber;
+    private Long transactionNum; // Admin 서버 거래 번호
 
     public ReservationDTO() {
     }
 
-    public ReservationDTO(int recordNum, String reservationDateTime, String startTime, String endTime, String paymentTime, String state, int bicycleCode, String bicycleType, int ratePerHour, String durationHours, int totalAmount, String phoneNumber) {
+    public ReservationDTO(int recordNum, String reservationDateTime, String startTime, String endTime,
+            String paymentTime, String state, int bicycleCode, String bicycleType, int ratePerHour,
+            String durationHours, int totalAmount, String phoneNumber) {
         this.recordNum = recordNum;
         this.reservationDateTime = reservationDateTime;
         this.startTime = startTime;
@@ -128,6 +131,14 @@ public class ReservationDTO {
         this.recordNum = recordNum;
     }
 
+    public Long getTransactionNum() {
+        return transactionNum;
+    }
+
+    public void setTransactionNum(Long transactionNum) {
+        this.transactionNum = transactionNum;
+    }
+
     @Override
     public String toString() {
         return "ReservationDTO{" +
@@ -143,6 +154,7 @@ public class ReservationDTO {
                 ", durationHours='" + durationHours + '\'' +
                 ", totalAmount=" + totalAmount +
                 ", phoneNumber='" + phoneNumber + '\'' +
+                ", transactionNum=" + transactionNum +
                 '}';
     }
 }
