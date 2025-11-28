@@ -27,9 +27,13 @@ public class BikeService {
         return bicycleMapper.findAvailableBicyclesByLocation(centerLat, centerLon, radiusKm, typeFilter);
     }
 
-    // ✅ 자전거 상태 변경
     public void updateBicycleStatus(int bicycleCode, String newStatus) {
         bicycleMapper.updateBicycleStatus(bicycleCode, newStatus);
+    }
+
+    // ✅ 전화번호로 회원 코드 조회
+    public Integer findMemberCodeByPhone(String phoneNumber) {
+        return memberMapper.findMemberCodeByPhone(phoneNumber);
     }
 
     // ✅ 예약 추가 (전화번호로 회원 코드 조회 후 저장)
@@ -48,7 +52,14 @@ public class BikeService {
         // 총 금액 계산
         int totalAmount = (int) Math.round(ratePerHour * durationHours);
 
-        // 예약 정보 저장
+        // ✅ 자전거 상태 변경 (예약됨)
+        bicycleMapper.updateBicycleStatus(Integer.parseInt(bicycleCode), "Reserved");
+
+        // ✅ 관리자 서버로 매출 전송 및 transaction_num 받기
+        Long transactionNum = sendTransactionToAdminServer(phoneNumber, totalAmount, startTime, endTime);
+        System.out.println("[BikeService] Admin 서버 응답 transaction_num: " + transactionNum);
+
+        // 예약 정보 저장 (transaction_num 포함)
         bicycleMapper.insertReservation(
                 bicycleCode,
                 startTime,
@@ -58,20 +69,15 @@ public class BikeService {
                 bicycleType,
                 ratePerHour,
                 durationHours,
-                totalAmount);
-
-        // ✅ 자전거 상태 변경 (예약됨)
-        bicycleMapper.updateBicycleStatus(Integer.parseInt(bicycleCode), "Reserved");
-
-        // ✅ 관리자 서버로 매출 전송
-        sendTransactionToAdminServer(phoneNumber, totalAmount, startTime, endTime);
+                totalAmount,
+                transactionNum);
 
         // TODO: 실제 bookingId 반환 로직 필요 (현재는 임시 값)
         return (int) (System.currentTimeMillis() % 100000);
     }
 
-    // ✅ 관리자 서버로 거래 기록 전송
-    private void sendTransactionToAdminServer(String phoneNumber, int amount, String startTime, String endTime) {
+    // ✅ 관리자 서버로 거래 기록 전송 및 transaction_num 반환
+    private Long sendTransactionToAdminServer(String phoneNumber, int amount, String startTime, String endTime) {
         try {
             org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
 
@@ -88,15 +94,30 @@ public class BikeService {
             payload.put("phoneNum", phoneNumber);
             payload.put("merchantCode", merchantCode);
             payload.put("amountUsed", amount);
-            payload.put("status", "S");
+            payload.put("status", "P");
             payload.put("startDate", startDateTime);
             payload.put("endDate", endDateTime);
 
-            restTemplate.postForObject(url, payload, String.class);
-            System.out.println("🚲 자전거 매출 전송 완료: " + amount + "원");
+            // Admin 서버 응답에서 transaction_num 추출
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> response = restTemplate.postForObject(url, payload, java.util.Map.class);
+
+            if (response != null && response.get("transaction") != null) {
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> transaction = (java.util.Map<String, Object>) response.get("transaction");
+                Object tNumObj = transaction.get("transactionNum");
+                Long transactionNum = (tNumObj instanceof Number) ? ((Number) tNumObj).longValue() : null;
+                System.out.println("🚲 자전거 매출 전송 완료: " + amount + "원, transaction_num: " + transactionNum);
+                return transactionNum;
+            } else {
+                System.err.println("⚠️ Admin 서버 응답에 transaction 객체 없음: " + response);
+                return null;
+            }
 
         } catch (Exception e) {
             System.err.println("❌ 자전거 매출 전송 실패: " + e.getMessage());
+            e.printStackTrace();
+            return null;
         }
     }
 

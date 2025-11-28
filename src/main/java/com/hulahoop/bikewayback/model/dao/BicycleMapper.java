@@ -18,7 +18,7 @@ public interface BicycleMapper {
                         @Param("typeFilter") String typeFilter);
 
         // ✅ 자전거 상태 업데이트
-        void updateBicycleStatus(@Param("bicycleCode") int bicycleCode,
+        int updateBicycleStatus(@Param("bicycleCode") int bicycleCode,
                         @Param("status") String status);
 
         // ✅ 예약 추가
@@ -31,7 +31,8 @@ public interface BicycleMapper {
                         @Param("bicycleType") String bicycleType,
                         @Param("ratePerHour") Integer ratePerHour,
                         @Param("durationHours") Double durationHours,
-                        @Param("totalAmount") Integer totalAmount);
+                        @Param("totalAmount") Integer totalAmount,
+                        @Param("transactionNum") Long transactionNum);
 
         // ✅ 전체 자전거 조회
         List<BicycleInfo> findAllBicycles();

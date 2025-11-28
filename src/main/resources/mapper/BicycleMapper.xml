@@ -57,7 +57,8 @@
             bicycle_type,
             rate_per_hour,
             duration_hours,
-            total_amount
+            total_amount,
+            transaction_num
         )
         VALUES
             (
@@ -71,7 +72,8 @@
                     #{bicycleType},
                     #{ratePerHour},
                     #{durationHours},
-                    #{totalAmount}
+                    #{totalAmount},
+                    #{transactionNum}
             )
     </insert>
 
