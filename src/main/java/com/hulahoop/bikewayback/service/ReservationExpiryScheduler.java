@@ -28,7 +28,7 @@ public class ReservationExpiryScheduler {
      * - 예약 상태: 예약됨 → 완료됨
      * - 자전거 상태: Reserved → Available
      */
-    @Scheduled(fixedRate = 300000) // 5분 (300,000 ms)
+    @Scheduled(fixedRate = 60000) // 1분 (60,000 ms)
     public void processExpiredReservations() {
         try {
             log.info("🔍 만료된 예약 검색 시작...");
