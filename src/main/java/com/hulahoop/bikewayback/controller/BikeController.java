@@ -306,7 +306,8 @@ public class BikeController {
             @SuppressWarnings("unchecked")
             java.util.List<Integer> dateList = (java.util.List<Integer>) dateObj;
             if (dateList.size() >= 3) {
-                return String.format("%04d-%02d-%02d", dateList.get(0), dateList.get(1), dateList.get(2));
+                // ✅ 시간 정보 추가: yyyy-MM-dd HH:mm:ss 형식으로 통일
+                return String.format("%04d-%02d-%02d 00:00:00", dateList.get(0), dateList.get(1), dateList.get(2));
             }
         }
         return dateObj != null ? dateObj.toString() : null;
