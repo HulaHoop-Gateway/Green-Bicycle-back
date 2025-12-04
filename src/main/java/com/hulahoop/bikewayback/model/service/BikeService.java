@@ -87,8 +87,8 @@ public class BikeService {
             // 날짜 포맷 변환 (String "HH:mm" -> LocalDateTime ISO String)
             // startTime, endTime은 "HH:mm" 형식이므로 날짜(오늘)를 붙여야 함
             String today = java.time.LocalDate.now().toString();
-            String startDateTime = today + "T" + startTime + ":00";
-            String endDateTime = today + "T" + endTime + ":00";
+            String startDateTime = today + " " + startTime + ":00";
+            String endDateTime = today + " " + endTime + ":00";
 
             java.util.Map<String, Object> payload = new java.util.HashMap<>();
             payload.put("phoneNum", phoneNumber);
